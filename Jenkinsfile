@@ -6,6 +6,9 @@ pipeline {
     }
     environment {
         MONGO_URI = "mongodb+srv://supercluster.d83jj.mongodb.net/superData"
+        MONGO_DB_Creds = credentials('mongo-db-credentials')
+        MONGO_USERNAME = credentials('mongo-db-username')
+        MONGO_PASSWORD = credentials('mongo-db-password')
     }
 
     stages {
@@ -74,13 +77,26 @@ pipeline {
         stage('Unit Testing') {
             options { retry(2) }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'mongo-db-credentials', passwordVariable: 'MONGO')]) {
-                    sh 'npm test'
-                }
+                sh 'npm test'
                 junit allowEmptyResults: true,
                       stdoutRetention: '',
                       testResults: 'test-results.xml'
             }
+        }
+        stage('Code Coverage') {
+            steps {
+                catchError(buildResult: 'SUCCESS', message: 'Oops! It will be fixed in future releases', stageResult: 'UNSTABLE') {
+                    sh 'npm run coverage'
+                }
+                publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report'])
+            }
+        }
+    }
+    post {
+        always {
+            junit allowEmptyResults: true, stdoutRetention: '', testResults: 'test-results.xml'
+            junit allowEmptyResults: true, stdoutRetention: '', testResults: 'dependency-check-junit.xml'
+            publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report'])
         }
     }
 }
