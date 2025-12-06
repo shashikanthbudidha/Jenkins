@@ -9,6 +9,7 @@ pipeline {
         MONGO_DB_Creds = credentials('mongo-db-credentials')
         MONGO_USERNAME = credentials('mongo-db-username')
         MONGO_PASSWORD = credentials('mongo-db-password')
+        SONAR_SCANNER_HOME = tool 'sonarqube-scanner-610'
     }
 
     stages {
@@ -90,6 +91,21 @@ pipeline {
                 }
                 publishHTML([allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'coverage/lcov-report', reportFiles: 'index.html', reportName: 'Code Coverage HTML Report'])
             }
+        }
+        stage('SAST - SonarQube') {
+            steps {
+                timeout(time: 60, unit: 'SECONDS') {
+                    withSonarQubeEnv('sonar-qube-server') {
+                        sh 'echo $SONAR_SCANNER_HOME'
+                        sh '''
+                        $SONAR_SCANNER_HOME/bin/sonar-scanner \
+                        -Dsonar.projectKey=Solar-System-Project \
+                        -Dsonar.sources=app.js \
+                        -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+                        '''
+                    }
+                }
+                waitForQualityGate abortPipeline: true
         }
     }
     post {
